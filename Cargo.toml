@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Roman Proskuryakov <r.proskuryakoff@gmail.com>"]
 edition = "2018"
 license = "MIT"
+repository = "https://github.com/kpp/strace-rs"
 description = '''
 An implementation of strace in Rust
 '''
