@@ -1,0 +1,11 @@
+[package]
+name = "strace"
+version = "0.1.0"
+authors = ["Roman Proskuryakov <r.proskuryakoff@gmail.com>"]
+edition = "2018"
+license = "MIT"
+description = '''
+An implementation of strace in Rust
+'''
+
+[dependencies]
