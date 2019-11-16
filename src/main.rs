@@ -52,18 +52,19 @@ fn main() {
                 println!("TODO event");
                 break;
             },
+            /*
             WaitStatus::Stopped(pid, _) => {
                 ptrace::syscall(pid).expect("failed to ask for a next syscall");
                 continue;
             },
+            */
+            | WaitStatus::Stopped(pid, _)
             | WaitStatus::PtraceSyscall(pid) => {
                 let regs = ptrace::getregs(pid).expect("could not get regs");
-                println!("\trip: {:x}", regs.rip);
-                println!("\trbp: {:x}", regs.rbp);
-                println!("\trsp: {:x}", regs.rsp);
-                println!("\trax: {:x}", regs.rax);
-                println!("\trcx: {:x}", regs.rcx);
-                println!("\trdx: {:x}", regs.rdx);
+
+                // https://blog.rchapman.org/posts/Linux_System_Call_Table_for_x86_64/
+                println!("\t\t\trdi\trsi\trax");
+                println!("\tsyscall_{}\t{}\t{}\t{}", regs.orig_rax, regs.rdi, regs.rsi, regs.rax);
 
                 ptrace::syscall(pid).expect("failed to ask for a next syscall");
                 continue;
