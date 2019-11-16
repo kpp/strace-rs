@@ -5,14 +5,15 @@ use std::io::{Error as IoError, Result as IoResult};
 use nix::sys::ptrace;
 use nix::sys::wait::WaitStatus;
 
+fn err_nix_to_io(err: nix::Error) -> IoError {
+    match err {
+        nix::Error::Sys(errno) => errno.into(),
+        other => IoError::new(std::io::ErrorKind::Other, other),
+    }
+}
+
 fn traceme() -> IoResult<()> {
-    ptrace::traceme()
-        .map_err(|e| {
-            match e {
-                nix::Error::Sys(errno) => errno.into(),
-                other => IoError::new(std::io::ErrorKind::Other, other),
-            }
-        })
+    ptrace::traceme().map_err(err_nix_to_io)
 }
 
 fn main() {
@@ -33,7 +34,8 @@ fn main() {
     ).expect("failed to call ptrace::setoptions");
 
     loop {
-        let status = nix::sys::wait::waitpid(child_pid, None).expect("failed to wait on tracee");
+        let status = nix::sys::wait::waitpid(child_pid, None)
+            .map_err(err_nix_to_io).expect("failed to wait on tracee");
         println!("{:?}", status);
         match status {
             WaitStatus::Exited(_, _) => {
@@ -60,13 +62,13 @@ fn main() {
             */
             | WaitStatus::Stopped(pid, _)
             | WaitStatus::PtraceSyscall(pid) => {
-                let regs = ptrace::getregs(pid).expect("could not get regs");
+                let regs = ptrace::getregs(pid).map_err(err_nix_to_io).expect("could not get regs");
 
                 // https://blog.rchapman.org/posts/Linux_System_Call_Table_for_x86_64/
                 println!("\t\t\trdi\trsi\trax");
                 println!("\tsyscall_{}\t{}\t{}\t{}", regs.orig_rax, regs.rdi, regs.rsi, regs.rax);
 
-                ptrace::syscall(pid).expect("failed to ask for a next syscall");
+                ptrace::syscall(pid).map_err(err_nix_to_io).expect("failed to ask for a next syscall");
                 continue;
             },
         }
