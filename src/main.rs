@@ -1,3 +1,5 @@
+use strace::syscall;
+
 use std::process::Command;
 use std::os::unix::process::CommandExt;
 use std::io::{Error as IoError, Result as IoResult};
@@ -40,7 +42,8 @@ fn main() {
             .map_err(err_nix_to_io).expect("failed to wait on tracee");
         println!("{:?}", status);
         match status {
-            WaitStatus::Exited(pid, _) => {
+            WaitStatus::Exited(pid, code) => {
+                println!("+++ [{}] exited with {} +++", pid, code);
                 if pid == child_pid {
                     break;
                 } else {
@@ -71,10 +74,13 @@ fn main() {
             | WaitStatus::Stopped(pid, _)
             | WaitStatus::PtraceSyscall(pid) => {
                 let regs = ptrace::getregs(pid).map_err(err_nix_to_io).expect("could not get regs");
+                let syscall_id = regs.orig_rax as usize;
 
-                // https://blog.rchapman.org/posts/Linux_System_Call_Table_for_x86_64/
-                println!("\t\t\trdi\trsi\trax");
-                println!("\tsyscall_{}\t{}\t{}\t{}", regs.orig_rax, regs.rdi, regs.rsi, regs.rax);
+                syscall::name(syscall_id).map_or_else(|| {
+                    println!("[{}]\tsyscall_{}\t{}\t{}\t{}", pid, syscall_id, regs.rdi, regs.rsi, regs.rax);
+                }, |name| {
+                    println!("[{}]\t{}\t{}\t{}\t{}", pid, name, regs.rdi, regs.rsi, regs.rax);
+                });
 
                 ptrace::syscall(pid).map_err(err_nix_to_io).expect("failed to ask for a next syscall");
                 continue;
