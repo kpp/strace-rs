@@ -10,3 +10,4 @@ An implementation of strace in Rust
 '''
 
 [dependencies]
+nix = "0.15"
