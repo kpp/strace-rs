@@ -29,17 +29,23 @@ fn main() {
 
     let child_pid = nix::unistd::Pid::from_raw(child.id() as _);
 
-    ptrace::setoptions(child_pid,
-        ptrace::Options::PTRACE_O_TRACESYSGOOD | ptrace::Options::PTRACE_O_TRACEEXEC
+    ptrace::setoptions(child_pid, ptrace::Options::empty()
+        | ptrace::Options::PTRACE_O_TRACESYSGOOD
+        | ptrace::Options::PTRACE_O_TRACEEXEC
+        | ptrace::Options::PTRACE_O_TRACECLONE
     ).expect("failed to call ptrace::setoptions");
 
     loop {
-        let status = nix::sys::wait::waitpid(child_pid, None)
+        let status = nix::sys::wait::waitpid(None, None)
             .map_err(err_nix_to_io).expect("failed to wait on tracee");
         println!("{:?}", status);
         match status {
-            WaitStatus::Exited(_, _) => {
-                break;
+            WaitStatus::Exited(pid, _) => {
+                if pid == child_pid {
+                    break;
+                } else {
+                    continue;
+                }
             },
             WaitStatus::Signaled(_, _, _) => {
                 break;
@@ -50,9 +56,11 @@ fn main() {
             WaitStatus::StillAlive => {
                 break;
             },
-            WaitStatus::PtraceEvent(_, _, _) => {
+            WaitStatus::PtraceEvent(pid, _, _) => {
                 println!("TODO event");
-                break;
+                ptrace::syscall(pid)
+                    .map_err(err_nix_to_io).expect("failed to ask for a next syscall");
+                continue;
             },
             /*
             WaitStatus::Stopped(pid, _) => {
